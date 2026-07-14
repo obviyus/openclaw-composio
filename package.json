@@ -1,0 +1,19 @@
+{
+  "name": "@obviyus/openclaw-composio",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: per-user Composio Tool Router sessions as a requester-scoped MCP server",
+  "type": "module",
+  "private": true,
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.7.3"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obviyus/openclaw-composio"
+  }
+}

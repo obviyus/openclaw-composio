@@ -1,0 +1,31 @@
+{
+  "id": "composio",
+  "activation": {
+    "onStartup": true
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "composio",
+        "envVars": ["COMPOSIO_API_KEY"]
+      }
+    ]
+  },
+  "uiHints": {
+    "apiKey": {
+      "label": "Composio API Key",
+      "help": "Org-level Composio API key (fallback: COMPOSIO_API_KEY env var). End users still connect their own accounts via OAuth links in chat.",
+      "sensitive": true,
+      "placeholder": "ak_..."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiKey": {
+        "type": ["string", "object"]
+      }
+    }
+  }
+}
