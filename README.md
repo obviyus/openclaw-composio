@@ -9,32 +9,37 @@ delivered to the agent as a requester-scoped MCP server. One user's connected
 accounts are never reachable from another user's turns; runs without a verified
 sender (cron, subagents, heartbeats) get no Composio tools at all.
 
-> Community plugin — not an official `@openclaw/*` package. Side-load it (a
-> directory in `plugins.load.paths`) or publish it to ClawHub under your own
-> owner scope.
+> Community plugin — not an official `@openclaw/*` package. Published to ClawHub
+> under the `obviyus` owner scope.
 
-## Setup (workspace admin, one time)
+## Install (workspace admin, one time)
 
-1. Point `plugins.load.paths` at this directory and enable `composio`.
-2. Provide your org-level Composio API key (from the
+```sh
+openclaw plugins install clawhub:@obviyus/composio
+```
+
+For local development, side-load instead: point `plugins.load.paths` at a clone
+of this repo and enable `composio`.
+
+Then provide your org-level Composio API key (from the
    [Composio dashboard](https://app.composio.dev)) either as the
    `COMPOSIO_API_KEY` environment variable or in config:
 
-   ```jsonc
-   {
-     "plugins": {
-       "entries": {
-         "composio": { "enabled": true, "config": { "apiKey": "ak_..." } }
-       }
-     },
-     "mcp": {
-       "servers": {
-         // Identity declaration; the connection is resolved per user at run time.
-         "composio": { "transport": "streamable-http", "url": "https://composio.invalid/unresolved" }
-       }
-     }
-   }
-   ```
+```jsonc
+{
+  "plugins": {
+    "entries": {
+      "composio": { "enabled": true, "config": { "apiKey": "ak_..." } }
+    }
+  },
+  "mcp": {
+    "servers": {
+      // Identity declaration; the connection is resolved per user at run time.
+      "composio": { "transport": "streamable-http", "url": "https://composio.invalid/unresolved" }
+    }
+  }
+}
+```
 
 ## Usage (end users, zero config)
 
@@ -52,3 +57,28 @@ account (Composio dashboard or in chat) takes effect within about five minutes.
 - Per-user sessions persist across restarts only when the host grants the plugin
   keyed store (bundled or trusted-official install). Side-loaded, it falls back
   to an in-memory cache — sessions re-mint on restart, users never re-auth.
+
+## Development & release
+
+Source lives in `index.ts` + `src/`. Tests are colocated (`*.test.ts`).
+
+ClawHub requires compiled runtime output, with `openclaw/*` imports left
+external (the host provides the plugin SDK at runtime). Build, commit the
+`dist/` output, bump the version, then publish from this GitHub source:
+
+```sh
+bun build ./index.ts --outdir ./dist --target node --format esm --external 'openclaw/*'
+# bump "version" in package.json
+git add -A && git commit -m "vX.Y.Z" && git push
+clawhub package publish obviyus/openclaw-composio --dry-run   # validate first
+clawhub package publish obviyus/openclaw-composio
+```
+
+Notes for maintainers:
+
+- `openclaw.compat.pluginApi` gates the minimum host version — keep it at the
+  first OpenClaw release that shipped `registerMcpServerConnectionResolver`.
+- `openclaw.build.openclawVersion` and the compiled `dist/` are required by
+  ClawHub publish validation; a publish from raw `.ts` is rejected.
+- The Composio Tool Router API is versioned (`/api/v3.1/...`); watch for
+  breaking changes in `src/tool-router.ts` when Composio bumps it.
