@@ -1,5 +1,7 @@
 {
   "id": "composio",
+  "name": "Composio",
+  "description": "Per-user Composio Tool Router sessions as a requester-scoped MCP server (per-user OAuth in chat)",
   "activation": {
     "onStartup": true
   },

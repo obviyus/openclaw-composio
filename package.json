@@ -1,6 +1,6 @@
 {
   "name": "@obviyus/composio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenClaw plugin: per-user Composio Tool Router sessions as a requester-scoped MCP server",
   "type": "module",
   "openclaw": {
