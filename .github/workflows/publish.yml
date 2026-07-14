@@ -1,0 +1,46 @@
+name: Publish to ClawHub
+
+# Build the runtime output and publish to ClawHub on a version tag.
+# Release flow: bump "version" in package.json, commit, then:
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clawhub-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      # dist/ is gitignored; the npm `files` whitelist ships this fresh build.
+      - name: Build runtime output
+        run: bun build ./index.ts --outdir ./dist --target node --format esm --external 'openclaw/*'
+
+      - name: Install ClawHub CLI
+        run: npm i -g clawhub
+
+      - name: Authenticate
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: clawhub login --token "$CLAWHUB_TOKEN"
+
+      # Publish the local folder (built dist included) with source provenance
+      # linked back to this repo + commit.
+      - name: Publish
+        run: >-
+          clawhub package publish .
+          --source-repo ${{ github.repository }}
+          --source-commit ${{ github.sha }}
+          --json

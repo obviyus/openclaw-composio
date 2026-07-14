@@ -3,6 +3,12 @@
   "version": "0.1.1",
   "description": "OpenClaw plugin: per-user Composio Tool Router sessions as a requester-scoped MCP server",
   "type": "module",
+  "files": [
+    "dist",
+    "index.ts",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
   "openclaw": {
     "extensions": [
       "./index.ts"
