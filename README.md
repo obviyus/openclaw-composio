@@ -48,6 +48,10 @@ Sentry queue?". On first use the agent replies with a personal OAuth link;
 after connecting, the tools work — bound to that user only. Disconnecting an
 account (Composio dashboard or in chat) takes effect within about five minutes.
 
+Files returned by Composio are downloaded through OpenClaw's guarded media
+store before their signed URLs expire or are redacted. The agent receives a
+managed `MEDIA:` reference it can attach to the reply.
+
 ## Notes
 
 - The org API key never reaches end users or chat; per-user credentials live in
