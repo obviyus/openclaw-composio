@@ -1,5 +1,6 @@
 // Composio plugin entrypoint: registers the requester-scoped MCP connection resolver.
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { createComposioFileResultMiddleware } from "./src/file-results.js";
 import { createComposioConnectionResolver } from "./src/resolver.js";
 import { openSessionCache } from "./src/session-cache.js";
 
@@ -9,6 +10,12 @@ export default definePluginEntry({
   description:
     "Per-user Composio Tool Router sessions as a requester-scoped MCP server (per-user OAuth in chat)",
   register(api) {
+    api.registerAgentToolResultMiddleware(
+      createComposioFileResultMiddleware({
+        onSaveFailure: () => api.logger.warn("composio: failed to save MCP file result"),
+      }),
+      { runtimes: ["openclaw", "codex"] },
+    );
     api.registerMcpServerConnectionResolver(
       createComposioConnectionResolver({
         getConfig: () => api.config,
