@@ -1,37 +1,56 @@
-/** Session cache: persistent store when granted, in-memory fallback otherwise. */
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { openSessionCache } from "./session-cache.js";
-import type { ToolRouterSession } from "./tool-router.js";
 
-const session: ToolRouterSession = { sessionId: "trs-1", mcpUrl: "https://mcp.example.test/mcp" };
+const temporary: string[] = [];
+afterEach(() => {
+  for (const dir of temporary.splice(0)) rmSync(dir, { recursive: true });
+});
+function stateDirectory() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "composio-cache-"));
+  temporary.push(dir);
+  return dir;
+}
+const session = { sessionId: "trs-1", mcpUrl: "https://mcp.example.test/mcp" };
 
-describe("openSessionCache", () => {
-  it("uses the persistent store when the host grants it", () => {
-    const store = { register: vi.fn(), lookup: vi.fn(), delete: vi.fn() };
-    const onFallback = vi.fn();
-    const cache = openSessionCache(() => store, onFallback);
-    expect(cache).toBe(store);
-    expect(onFallback).not.toHaveBeenCalled();
+describe("session cache", () => {
+  it("keeps per-sender sessions through close/reopen and persists deletion", async () => {
+    const dir = stateDirectory();
+    let cache = openSessionCache(dir);
+    try {
+      await cache.register("U1", session, { ttlMs: 10000 });
+      await cache.register("U2", { ...session, sessionId: "trs-2" });
+      cache.close();
+      cache = openSessionCache(dir);
+      expect(await cache.lookup("U1")).toEqual(session);
+      expect((await cache.lookup("U2"))?.sessionId).toBe("trs-2");
+      expect(await cache.delete("U1")).toBe(true);
+      expect(await cache.delete("missing")).toBe(false);
+      cache.close();
+      cache = openSessionCache(dir);
+      expect(await cache.lookup("U1")).toBeUndefined();
+      expect(statSync(path.join(dir, "plugins/composio/sessions.sqlite")).mode & 0o777).toBe(0o600);
+    } finally {
+      cache.close();
+    }
   });
 
-  it("falls back to an in-memory cache and signals once when the store is denied", async () => {
-    const onFallback = vi.fn();
-    const cache = openSessionCache(() => {
-      throw new Error("openKeyedStore is only available for trusted plugins in this release.");
-    }, onFallback);
-
-    expect(onFallback).toHaveBeenCalledTimes(1);
-    await cache.register("U1", session);
-    await expect(cache.lookup("U1")).resolves.toEqual(session);
-    await expect(cache.delete("U1")).resolves.toBe(true);
-    await expect(cache.lookup("U1")).resolves.toBeUndefined();
-  });
-
-  it("expires in-memory entries past their ttl", async () => {
-    const cache = openSessionCache(() => {
-      throw new Error("denied");
-    });
-    await cache.register("U1", session, { ttlMs: -1 });
-    await expect(cache.lookup("U1")).resolves.toBeUndefined();
+  it("expires sessions and keeps the original insertion order when replacing at capacity", async () => {
+    const cache = openSessionCache(stateDirectory());
+    try {
+      await cache.register("expired", session, { ttlMs: -1 });
+      expect(await cache.lookup("expired")).toBeUndefined();
+      for (let index = 0; index < 10000; index++) await cache.register(`U${index}`, session);
+      await cache.register("U0", { ...session, sessionId: "replacement" });
+      expect((await cache.lookup("U0"))?.sessionId).toBe("replacement");
+      await cache.register("overflow", session);
+      expect(await cache.lookup("U0")).toBeUndefined();
+      expect(await cache.lookup("U1")).toEqual(session);
+      expect(await cache.lookup("overflow")).toEqual(session);
+    } finally {
+      cache.close();
+    }
   });
 });

@@ -5,6 +5,9 @@
   "activation": {
     "onStartup": true
   },
+  "mcpServers": {
+    "composio": { "transport": "streamable-http" }
+  },
   "contracts": {
     "agentToolResultMiddleware": ["openclaw", "codex"]
   },

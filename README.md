@@ -18,26 +18,20 @@ sender (cron, subagents, heartbeats) get no Composio tools at all.
 openclaw plugins install clawhub:@obviyus/composio
 ```
 
-For local development, side-load instead: point `plugins.load.paths` at a clone
-of this repo and enable `composio`.
+For local development, build with the command below, then install the local
+package with `openclaw plugins install ./path/to/openclaw-composio`.
 
 Then provide your org-level Composio API key (from the
-   [Composio dashboard](https://app.composio.dev)) either as the
-   `COMPOSIO_API_KEY` environment variable or in config:
+[Composio dashboard](https://app.composio.dev)) either as the
+`COMPOSIO_API_KEY` environment variable or in config:
 
 ```jsonc
 {
   "plugins": {
     "entries": {
-      "composio": { "enabled": true, "config": { "apiKey": "ak_..." } }
-    }
+      "composio": { "enabled": true, "config": { "apiKey": "ak_..." } },
+    },
   },
-  "mcp": {
-    "servers": {
-      // Identity declaration; the connection is resolved per user at run time.
-      "composio": { "transport": "streamable-http", "url": "https://composio.invalid/unresolved" }
-    }
-  }
 }
 ```
 
@@ -56,11 +50,9 @@ managed `MEDIA:` reference it can attach to the reply.
 
 - The org API key never reaches end users or chat; per-user credentials live in
   Composio and never touch OpenClaw config, logs, or transcripts.
-- Requires an OpenClaw release with requester-scoped MCP connections
-  (`registerMcpServerConnectionResolver`).
-- Per-user sessions persist across restarts only when the host grants the plugin
-  keyed store (bundled or trusted-official install). Side-loaded, it falls back
-  to an in-memory cache — sessions re-mint on restart, users never re-auth.
+- Requires OpenClaw 2026.9.4 or later for the public SQLite helpers and plugin-owned MCP declaration.
+- Per-user sessions persist in `plugins/composio/sessions.sqlite` under the host state directory. The cache keeps the existing 30-day expiry and 10,000-entry insertion-order eviction. It contains routing session IDs and URLs; connected accounts and the organization API key stay with their existing owners.
+- The plugin manifest owns the MCP declaration. Remove any old `mcp.servers.composio` entry from host config. The declaration has no fallback URL: only a verified requester supplies a connection. Disabling the plugin removes its declaration.
 
 ## Development & release
 
@@ -95,8 +87,7 @@ clawhub package publish . --source-repo obviyus/openclaw-composio --source-commi
 
 Notes for maintainers:
 
-- `openclaw.compat.pluginApi` gates the minimum host version — keep it at the
-  first OpenClaw release that shipped `registerMcpServerConnectionResolver`.
+- `openclaw.compat.pluginApi` gates the minimum tested host version for the plugin's public SDK contracts.
 - `openclaw.build.openclawVersion` and the compiled `dist/` are required by
   ClawHub publish validation.
 - The Composio Tool Router API is versioned (`/api/v3.1/...`); watch for

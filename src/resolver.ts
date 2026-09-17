@@ -35,8 +35,7 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export function createComposioConnectionResolver(deps: ComposioResolverDeps) {
   const createSession = deps.createSession ?? createToolRouterSession;
   const probeSession = deps.probeSession ?? probeToolRouterSession;
-  let store: KeyedStore<ToolRouterSession> | undefined;
-  const sessionStore = () => (store ??= deps.openSessionStore());
+  const sessionStore = deps.openSessionStore;
   return {
     serverName: COMPOSIO_MCP_SERVER_NAME,
     resolve: async (ctx: { requesterSenderId: string }) => {

@@ -10,25 +10,48 @@ export default definePluginEntry({
   description:
     "Per-user Composio Tool Router sessions as a requester-scoped MCP server (per-user OAuth in chat)",
   register(api) {
+    let cache: ReturnType<typeof openSessionCache> | undefined;
+    let stopped = false;
+    const pending = new Set<Promise<unknown>>();
+    api.registerService({
+      id: "composio-session-cache",
+      start() {
+        stopped = false;
+      },
+      async stop() {
+        stopped = true;
+        await Promise.allSettled(pending);
+        cache?.close();
+        cache = undefined;
+      },
+    });
     api.registerAgentToolResultMiddleware(
       createComposioFileResultMiddleware({
         onSaveFailure: () => api.logger.warn("composio: failed to save MCP file result"),
       }),
       { runtimes: ["openclaw", "codex"] },
     );
-    api.registerMcpServerConnectionResolver(
-      createComposioConnectionResolver({
-        getConfig: () => api.config,
-        openSessionStore: () =>
-          openSessionCache(
-            (options) => api.runtime.state.openKeyedStore(options),
-            (message) => api.logger.info(message),
-          ),
-        onResolve: (event) =>
-          api.logger.debug?.(
-            `composio: connection ${event.outcome} for sender ${event.requesterSenderId}`,
-          ),
-      }),
-    );
+    const resolver = createComposioConnectionResolver({
+      getConfig: () => api.config,
+      openSessionStore: () => (cache ??= openSessionCache(api.runtime.state.resolveStateDir())),
+      onResolve: (event) =>
+        api.logger.debug?.(
+          `composio: connection ${event.outcome} for sender ${event.requesterSenderId}`,
+        ),
+    });
+    api.registerMcpServerConnectionResolver({
+      serverName: resolver.serverName,
+      async resolve(ctx) {
+        if (stopped) return null;
+        const operation = resolver.resolve(ctx);
+        pending.add(operation);
+        try {
+          const connection = await operation;
+          return stopped ? null : connection;
+        } finally {
+          pending.delete(operation);
+        }
+      },
+    });
   },
 });
